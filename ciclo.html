@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ciclo 2026-2</title>
+<style>
+  /* ============================================================
+     CONFIGURACIÓN DEL CICLO — editar solo estos valores en JS
+     más abajo (buscar el bloque "CONFIGURACIÓN DEL CICLO").
+     ============================================================ */
+
+  :root {
+    color-scheme: light dark;
+
+    /* --- Tema claro (por defecto) --- */
+    --text: #1b1f18;
+    --muted: #5c6356;
+    --card: rgba(255, 255, 255, 0.55);
+    --border: rgba(20, 22, 18, 0.10);
+    --track: rgba(20, 22, 18, 0.10);
+    --accent: #6f9457;
+    --accent-strong: #4f7238;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text: #eef1ea;
+      --muted: #a2a99a;
+      --card: rgba(255, 255, 255, 0.045);
+      --border: rgba(255, 255, 255, 0.10);
+      --track: rgba(255, 255, 255, 0.10);
+      --accent: #a3c989;
+      --accent-strong: #c3e0aa;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* evita barras de desplazamiento en el embed */
+    background: transparent;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(6px, 2.5vw, 16px);
+  }
+
+  .card {
+    width: 100%;
+    height: 100%;
+    min-width: 200px;
+    min-height: 90px;
+    max-width: 480px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: clamp(10px, 3vw, 18px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: clamp(12px, 5vw, 26px) clamp(14px, 5.5vw, 28px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(4px, 1.6vw, 10px);
+    overflow: hidden;
+  }
+
+  .cycle-label {
+    font-size: clamp(0.6rem, 2.6vw, 0.75rem);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--accent-strong);
+    text-transform: uppercase;
+  }
+
+  .week-heading {
+    font-size: clamp(1.4rem, 9vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .date-range {
+    font-size: clamp(0.72rem, 3vw, 0.95rem);
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2.5vw, 12px);
+    margin-top: clamp(2px, 1vw, 6px);
+  }
+
+  .progress-track {
+    flex: 1 1 auto;
+    height: clamp(5px, 1.6vw, 8px);
+    border-radius: 999px;
+    background: var(--track);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.6s ease;
+  }
+
+  .progress-percent {
+    flex: 0 0 auto;
+    font-size: clamp(0.72rem, 3vw, 0.9rem);
+    font-weight: 700;
+    color: var(--accent-strong);
+    min-width: 2.6ch;
+    text-align: right;
+  }
+
+  .status-message {
+    font-size: clamp(0.85rem, 3.6vw, 1.15rem);
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .status-sub {
+    font-size: clamp(0.68rem, 2.8vw, 0.85rem);
+    color: var(--muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .progress-fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="card" id="card" role="group" aria-live="polite" aria-label="Estado del ciclo académico">
+
+    <!-- Estado activo: semana en curso -->
+    <div id="view-active" hidden>
+      <div class="cycle-label" id="cycle-label">CICLO 2026-2</div>
+      <div class="week-heading" id="week-heading">SEMANA 1</div>
+      <div class="date-range" id="date-range">24 — 30 agosto</div>
+      <div class="progress-row">
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-percent" id="progress-percent">0%</div>
+      </div>
+    </div>
+
+    <!-- Estado: el ciclo aún no comienza -->
+    <div id="view-before" hidden>
+      <div class="cycle-label" id="cycle-label-before">CICLO 2026-2</div>
+      <div class="status-message">El ciclo aún no ha comenzado</div>
+      <div class="status-sub" id="before-sub"></div>
+    </div>
+
+    <!-- Estado: el ciclo ya terminó -->
+    <div id="view-after" hidden>
+      <div class="cycle-label" id="cycle-label-after">CICLO 2026-2</div>
+      <div class="status-message">Ciclo finalizado</div>
+      <div class="status-sub" id="after-sub"></div>
+    </div>
+
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     CONFIGURACIÓN DEL CICLO
+     Para reutilizar este widget en otro ciclo, modifica solo
+     estos tres valores:
+     ============================================================ */
+  var CYCLE_LABEL = "CICLO 2026-2";                 // Etiqueta mostrada
+  var CYCLE_START = new Date(2026, 7, 24);          // Lunes de inicio (año, mes-1, día). Agosto = índice 7
+  var CYCLE_WEEKS = 16;                             // Duración en semanas
+  /* ============================================================ */
+
+  var DAY_MS = 24 * 60 * 60 * 1000;
+  var MESES = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+  ];
+
+  // --- Elementos del DOM ---
+  var viewActive = document.getElementById("view-active");
+  var viewBefore = document.getElementById("view-before");
+  var viewAfter = document.getElementById("view-after");
+
+  var weekHeadingEl = document.getElementById("week-heading");
+  var dateRangeEl = document.getElementById("date-range");
+  var progressFillEl = document.getElementById("progress-fill");
+  var progressPercentEl = document.getElementById("progress-percent");
+  var beforeSubEl = document.getElementById("before-sub");
+  var afterSubEl = document.getElementById("after-sub");
+
+  [
+    "cycle-label", "cycle-label-before", "cycle-label-after"
+  ].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = CYCLE_LABEL;
+  });
+
+  // --- Utilidades de fecha (todas en hora LOCAL, nunca UTC/ISO) ---
+
+  function atLocalMidnight(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  function addDays(d, days) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+  }
+
+  function formatRange(start, end) {
+    var sameMonth =
+      start.getMonth() === end.getMonth() &&
+      start.getFullYear() === end.getFullYear();
+
+    if (sameMonth) {
+      return start.getDate() + " — " + end.getDate() + " " + MESES[start.getMonth()];
+    }
+    return (
+      start.getDate() + " de " + MESES[start.getMonth()] +
+      " — " +
+      end.getDate() + " de " + MESES[end.getMonth()]
+    );
+  }
+
+  // --- Cálculo del estado del ciclo ---
+
+  function computeState(now) {
+    var today = atLocalMidnight(now);
+    var start = atLocalMidnight(CYCLE_START);
+    var diffDays = Math.round((today - start) / DAY_MS);
+
+    if (diffDays < 0) {
+      return { status: "before", start: start };
+    }
+
+    var totalDays = CYCLE_WEEKS * 7;
+
+    if (diffDays >= totalDays) {
+      var end = addDays(start, totalDays - 1);
+      return { status: "after", end: end };
+    }
+
+    var week = Math.floor(diffDays / 7) + 1;
+    var weekStart = addDays(start, (week - 1) * 7);
+    var weekEnd = addDays(weekStart, 6);
+    var percent = Math.round((week / CYCLE_WEEKS) * 100);
+
+    return {
+      status: "active",
+      week: week,
+      weekStart: weekStart,
+      weekEnd: weekEnd,
+      percent: percent
+    };
+  }
+
+  // --- Render ---
+
+  function render(state) {
+    viewActive.hidden = true;
+    viewBefore.hidden = true;
+    viewAfter.hidden = true;
+
+    if (state.status === "before") {
+      viewBefore.hidden = false;
+      beforeSubEl.textContent =
+        "Comienza el " + state.start.getDate() + " de " + MESES[state.start.getMonth()] +
+        " de " + state.start.getFullYear();
+      return;
+    }
+
+    if (state.status === "after") {
+      viewAfter.hidden = false;
+      afterSubEl.textContent =
+        "Terminó el " + state.end.getDate() + " de " + MESES[state.end.getMonth()] +
+        " de " + state.end.getFullYear();
+      return;
+    }
+
+    viewActive.hidden = false;
+    weekHeadingEl.textContent = "SEMANA " + state.week;
+    dateRangeEl.textContent = formatRange(state.weekStart, state.weekEnd);
+    progressFillEl.style.width = state.percent + "%";
+    progressPercentEl.textContent = state.percent + "%";
+  }
+
+  function update() {
+    render(computeState(new Date()));
+  }
+
+  // --- Programación de la actualización automática cada lunes 00:00 ---
+
+  var mondayTimeoutId = null;
+
+  function msUntilNextMonday(now) {
+    var next = atLocalMidnight(now);
+    var day = next.getDay(); // 0=domingo ... 1=lunes ... 6=sábado
+    var daysUntilMonday = ((8 - day) % 7) || 7; // siempre apunta al PRÓXIMO lunes, nunca "hoy"
+    next = addDays(next, daysUntilMonday);
+    return next.getTime() - now.getTime();
+  }
+
+  function scheduleNextMondayUpdate() {
+    if (mondayTimeoutId) clearTimeout(mondayTimeoutId);
+    var now = new Date();
+    var ms = msUntilNextMonday(now);
+    // Pequeño margen de seguridad de 2s para asegurar que ya sea lunes al disparar
+    mondayTimeoutId = setTimeout(function () {
+      update();
+      scheduleNextMondayUpdate();
+    }, ms + 2000);
+  }
+
+  // 1) Cálculo inicial
+  update();
+
+  // 2) Timer exacto hasta el próximo lunes 00:00
+  scheduleNextMondayUpdate();
+
+  // 3) Respaldo: revalida cada 60s por si el dispositivo estuvo en reposo
+  //    y el setTimeout no se disparó exactamente a tiempo.
+  setInterval(update, 60 * 1000);
+
+  // 4) Respaldo adicional: al volver a la pestaña/ventana
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) {
+      update();
+      scheduleNextMondayUpdate();
+    }
+  });
+})();
+</script>
+</body>
+</html>
